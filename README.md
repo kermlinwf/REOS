@@ -46,23 +46,15 @@ npm install
 npm run dev
 ```
 
-## GitHub Pages
+## GitHub Pages (iPhone)
 
-1. Repo **Settings → Pages → Source: GitHub Actions**.
-2. Add secrets: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`.
-3. Push to `main` — workflow builds with `VITE_BASE_PATH=/<repo>/`.
-4. In Supabase Auth, add your Pages URL to **Redirect URLs**.
+Live URL after deploy: **https://kermlinwf.github.io/REOS/**
 
-For a custom domain, set `VITE_BASE_PATH=/` in the workflow.
+1. Repo **Settings → Pages → Build and deployment → Source: GitHub Actions**
+2. Push to `main` (or run the **Deploy to GitHub Pages** workflow)
+3. On iPhone Safari open the URL → **Share → Add to Home Screen**
 
-SPA deep links: Vite emits `index.html` at the root; for project sites, enable “404 → index.html” via a `404.html` copy of `index.html` if needed:
-
-```bash
-# after build, for GitHub Pages client-side routing
-cp dist/index.html dist/404.html
-```
-
-(The deploy workflow can be extended to do this automatically.)
+Solo/local mode stores data in that browser only (iPhone Safari ≠ your desktop). Back up with Tax export CSV if you care about the data.
 
 ## Domain model
 

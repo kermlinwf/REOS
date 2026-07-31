@@ -26,9 +26,10 @@ jobs:
       - run: npm ci
       - name: Build static export
         env:
+          # Optional — solo/local mode works with these unset
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
-          # Project site: /REPO_NAME/ — custom domain: /
+          # Project site lives at https://<user>.github.io/REOS/
           VITE_BASE_PATH: /${{ github.event.repository.name }}/
         run: |
           npm run build
