@@ -100,6 +100,33 @@ export function BackupPage() {
       <Card>
         <CardContent className="space-y-3 p-4">
           <div>
+            <p className="font-medium">Old home-screen app (no Backup button)?</p>
+            <p className="text-sm text-[var(--color-muted-foreground)]">
+              Open this recovery page in Safari (or any browser tab). It reads
+              the same phone storage and can download your JSON even when the
+              old app UI is stuck:
+            </p>
+            <p className="mt-2 text-sm">
+              <a
+                className="font-medium text-[var(--color-primary)] underline"
+                href={`${import.meta.env.BASE_URL}recover.html`}
+              >
+                Open recover.html
+              </a>
+            </p>
+            <p className="mt-2 text-sm text-[var(--color-muted-foreground)]">
+              If that page says empty, your data is locked inside the old icon’s
+              private storage — do not delete the icon. Use a Mac + Safari Web
+              Inspector, or open recover.html from a context that shares that
+              storage.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent className="space-y-3 p-4">
+          <div>
             <p className="font-medium">1. Export from the app that has your data</p>
             <p className="text-sm text-[var(--color-muted-foreground)]">
               Prefer Safari: open{" "}
@@ -107,8 +134,7 @@ export function BackupPage() {
                 kermlinwf.github.io/REOS/
               </span>
               , pull to refresh, confirm your ledger is there, then Download
-              here. (If Safari is empty, open the old home-screen icon after
-              this update has loaded, or use Copy JSON.)
+              here. (If Safari is empty, use recover.html above.)
             </p>
           </div>
           <div className="flex flex-wrap gap-2">

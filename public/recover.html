@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+    />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <title>REOS — Recover data</title>
+    <style>
+      :root {
+        color-scheme: light;
+        font-family: system-ui, -apple-system, sans-serif;
+      }
+      body {
+        margin: 0;
+        padding: 1.25rem;
+        background: #f4f6f8;
+        color: #0f172a;
+        line-height: 1.45;
+      }
+      h1 {
+        font-size: 1.35rem;
+        margin: 0 0 0.35rem;
+      }
+      p {
+        margin: 0 0 0.75rem;
+        color: #475569;
+        font-size: 0.95rem;
+      }
+      .card {
+        background: #fff;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        padding: 1rem;
+        margin-bottom: 0.75rem;
+      }
+      .stat {
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: #0f172a;
+      }
+      button,
+      label.btn {
+        display: inline-block;
+        border: 0;
+        border-radius: 8px;
+        padding: 0.7rem 1rem;
+        font-size: 1rem;
+        font-weight: 600;
+        cursor: pointer;
+        margin: 0.25rem 0.35rem 0.25rem 0;
+      }
+      .primary {
+        background: #0b3d5c;
+        color: #fff;
+      }
+      .secondary {
+        background: #e2e8f0;
+        color: #0f172a;
+      }
+      .warn {
+        background: #fef3c7;
+        border-color: #f59e0b;
+        color: #78350f;
+      }
+      textarea {
+        width: 100%;
+        min-height: 8rem;
+        box-sizing: border-box;
+        font-family: ui-monospace, monospace;
+        font-size: 0.7rem;
+        padding: 0.5rem;
+        border-radius: 8px;
+        border: 1px solid #cbd5e1;
+      }
+      .ok {
+        color: #166534;
+        font-weight: 600;
+      }
+      .bad {
+        color: #991b1b;
+        font-weight: 600;
+      }
+      ol {
+        margin: 0.25rem 0 0;
+        padding-left: 1.2rem;
+        color: #475569;
+        font-size: 0.9rem;
+      }
+      a {
+        color: #0b3d5c;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>REOS data recovery</h1>
+    <p>
+      This page reads your portfolio from this phone’s browser storage — even if
+      the old home-screen app never got the Backup button.
+    </p>
+
+    <div class="card warn">
+      <strong>Do not delete</strong> the old home-screen icon until you have
+      downloaded a backup file and confirmed restore worked.
+    </div>
+
+    <div class="card">
+      <p class="stat" id="status">Checking…</p>
+      <p id="detail"></p>
+      <button type="button" class="primary" id="download" disabled>
+        Download backup JSON
+      </button>
+      <button type="button" class="secondary" id="copy" disabled>
+        Copy JSON
+      </button>
+    </div>
+
+    <div class="card">
+      <p><strong>If this page shows your data</strong></p>
+      <ol>
+        <li>Tap <strong>Download backup JSON</strong> and save to Files.</li>
+        <li>
+          Open the
+          <a href="./">updated REOS app</a> → More → Backup &amp; restore →
+          Restore from file.
+        </li>
+      </ol>
+    </div>
+
+    <div class="card">
+      <p><strong>If this page is empty</strong></p>
+      <p>
+        Open this same link
+        <em>inside</em> the old home-screen app if you can, or in Safari after
+        opening the old icon first. Storage is sometimes isolated per icon.
+      </p>
+      <p>
+        Direct link (bookmark or type in Safari):<br />
+        <code id="link"></code>
+      </p>
+    </div>
+
+    <div class="card">
+      <p><strong>Paste a backup to restore here</strong></p>
+      <textarea
+        id="paste"
+        placeholder='Paste reos-backup JSON or raw store here, then tap Restore'
+      ></textarea>
+      <button type="button" class="primary" id="restore">
+        Restore into this browser
+      </button>
+      <p id="restoreMsg"></p>
+    </div>
+
+    <script>
+      (function () {
+        var KEY = "reos_local_store_v1";
+        var statusEl = document.getElementById("status");
+        var detailEl = document.getElementById("detail");
+        var downloadBtn = document.getElementById("download");
+        var copyBtn = document.getElementById("copy");
+        var linkEl = document.getElementById("link");
+        var payload = null;
+
+        linkEl.textContent = location.href.split("#")[0];
+
+        function summarize(store) {
+          if (!store || typeof store !== "object") return null;
+          return {
+            properties: (store.properties || []).length,
+            units: (store.units || []).length,
+            tenants: (store.tenants || []).length,
+            transactions: (store.transactions || []).length,
+            leases: (store.leases || []).length,
+          };
+        }
+
+        function load() {
+          var raw = localStorage.getItem(KEY);
+          if (!raw) {
+            statusEl.innerHTML =
+              '<span class="bad">No REOS data in this browser slot</span>';
+            detailEl.textContent =
+              "Try opening this URL from Safari after using the old icon, or ask someone with a Mac to use Safari Web Inspector on the old app and copy localStorage.";
+            downloadBtn.disabled = true;
+            copyBtn.disabled = true;
+            payload = null;
+            return;
+          }
+          try {
+            var store = JSON.parse(raw);
+            var s = summarize(store);
+            payload = {
+              app: "REOS",
+              version: 1,
+              exported_at: new Date().toISOString(),
+              store: store,
+            };
+            statusEl.innerHTML =
+              '<span class="ok">Found your portfolio</span>';
+            detailEl.textContent =
+              s.properties +
+              " properties · " +
+              s.units +
+              " units · " +
+              s.transactions +
+              " ledger lines · " +
+              s.leases +
+              " leases";
+            downloadBtn.disabled = false;
+            copyBtn.disabled = false;
+          } catch (e) {
+            statusEl.innerHTML =
+              '<span class="bad">Data found but could not be read</span>';
+            detailEl.textContent = String(e);
+            payload = { raw: raw };
+            downloadBtn.disabled = false;
+            copyBtn.disabled = false;
+          }
+        }
+
+        function jsonText() {
+          if (!payload) return "";
+          if (payload.raw) return payload.raw;
+          return JSON.stringify(payload, null, 2);
+        }
+
+        downloadBtn.onclick = function () {
+          var text = jsonText();
+          var blob = new Blob([text], { type: "application/json" });
+          var url = URL.createObjectURL(blob);
+          var a = document.createElement("a");
+          a.href = url;
+          a.download =
+            "reos-backup-" + new Date().toISOString().slice(0, 10) + ".json";
+          a.click();
+          URL.revokeObjectURL(url);
+        };
+
+        copyBtn.onclick = async function () {
+          try {
+            await navigator.clipboard.writeText(jsonText());
+            detailEl.textContent = "Copied to clipboard.";
+          } catch (e) {
+            detailEl.textContent =
+              "Copy failed — use Download instead. " + String(e);
+          }
+        };
+
+        document.getElementById("restore").onclick = function () {
+          var msg = document.getElementById("restoreMsg");
+          var text = document.getElementById("paste").value.trim();
+          if (!text) {
+            msg.textContent = "Paste a backup first.";
+            return;
+          }
+          if (
+            !confirm(
+              "Replace ALL REOS data in this browser with the pasted backup?",
+            )
+          ) {
+            return;
+          }
+          try {
+            var parsed = JSON.parse(text);
+            var store =
+              parsed && parsed.app === "REOS" && parsed.store
+                ? parsed.store
+                : parsed;
+            if (!store || typeof store !== "object") {
+              throw new Error("Invalid backup shape");
+            }
+            localStorage.setItem(KEY, JSON.stringify(store));
+            msg.innerHTML =
+              '<span class="ok">Restored. Open the main app next.</span>';
+            load();
+          } catch (e) {
+            msg.innerHTML =
+              '<span class="bad">Restore failed: ' + String(e) + "</span>";
+          }
+        };
+
+        load();
+      })();
+    </script>
+  </body>
+</html>
