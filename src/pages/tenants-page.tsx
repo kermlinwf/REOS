@@ -1,7 +1,12 @@
 import * as React from "react";
 import { Plus } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
-import { createTenant, useTenants } from "@/hooks/use-data";
+import {
+  createTenant,
+  deleteTenant,
+  updateTenant,
+  useTenants,
+} from "@/hooks/use-data";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -14,18 +19,19 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/components/ui/toast";
+import { confirmDelete, RowActions } from "@/components/row-actions";
+import type { Tenant } from "@/types/database";
+
+const emptyForm = { full_name: "", email: "", phone: "" };
 
 export function TenantsPage() {
   const { user } = useAuth();
   const { data, loading, error, reload } = useTenants();
   const { toast } = useToast();
   const [open, setOpen] = React.useState(false);
+  const [editingId, setEditingId] = React.useState<string | null>(null);
   const [saving, setSaving] = React.useState(false);
-  const [form, setForm] = React.useState({
-    full_name: "",
-    email: "",
-    phone: "",
-  });
+  const [form, setForm] = React.useState(emptyForm);
   const [query, setQuery] = React.useState("");
 
   const filtered = data.filter((t) => {
@@ -38,23 +44,41 @@ export function TenantsPage() {
     );
   });
 
-  async function onCreate(e: React.FormEvent) {
+  function startEdit(t: Tenant) {
+    setEditingId(t.id);
+    setOpen(true);
+    setForm({
+      full_name: t.full_name,
+      email: t.email ?? "",
+      phone: t.phone ?? "",
+    });
+  }
+
+  function resetForm() {
+    setOpen(false);
+    setEditingId(null);
+    setForm(emptyForm);
+  }
+
+  async function onSave(e: React.FormEvent) {
     e.preventDefault();
     if (!user) return;
     setSaving(true);
     try {
-      await createTenant(
-        {
-          full_name: form.full_name,
-          email: form.email || null,
-          phone: form.phone || null,
-          notes: null,
-        },
-        user.id,
-      );
-      toast({ title: "Tenant added", variant: "success" });
-      setOpen(false);
-      setForm({ full_name: "", email: "", phone: "" });
+      const payload = {
+        full_name: form.full_name,
+        email: form.email || null,
+        phone: form.phone || null,
+        notes: null as string | null,
+      };
+      if (editingId) {
+        await updateTenant(editingId, payload);
+        toast({ title: "Tenant updated", variant: "success" });
+      } else {
+        await createTenant(payload, user.id);
+        toast({ title: "Tenant added", variant: "success" });
+      }
+      resetForm();
       reload();
     } catch (err) {
       toast({
@@ -64,6 +88,22 @@ export function TenantsPage() {
       });
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function onDelete(id: string) {
+    if (!confirmDelete("tenant (and their leases)")) return;
+    try {
+      await deleteTenant(id);
+      toast({ title: "Tenant deleted", variant: "success" });
+      if (editingId === id) resetForm();
+      reload();
+    } catch (err) {
+      toast({
+        title: "Could not delete",
+        description: err instanceof Error ? err.message : "Unknown error",
+        variant: "destructive",
+      });
     }
   }
 
@@ -81,7 +121,14 @@ export function TenantsPage() {
             People on your leases.
           </p>
         </div>
-        <Button onClick={() => setOpen((v) => !v)} size="sm">
+        <Button
+          onClick={() => {
+            setEditingId(null);
+            setForm(emptyForm);
+            setOpen((v) => !v);
+          }}
+          size="sm"
+        >
           <Plus className="h-4 w-4" />
           Add
         </Button>
@@ -97,10 +144,13 @@ export function TenantsPage() {
       {open ? (
         <Card>
           <CardHeader>
-            <CardTitle>New tenant</CardTitle>
+            <CardTitle>{editingId ? "Edit tenant" : "New tenant"}</CardTitle>
           </CardHeader>
           <CardContent>
-            <form className="grid gap-3 sm:grid-cols-2" onSubmit={(e) => void onCreate(e)}>
+            <form
+              className="grid gap-3 sm:grid-cols-2"
+              onSubmit={(e) => void onSave(e)}
+            >
               <div className="space-y-1.5 sm:col-span-2">
                 <Label htmlFor="full_name">Full name</Label>
                 <Input
@@ -132,9 +182,9 @@ export function TenantsPage() {
               </div>
               <div className="flex gap-2 sm:col-span-2">
                 <Button type="submit" disabled={saving}>
-                  {saving ? "Saving…" : "Save tenant"}
+                  {saving ? "Saving…" : editingId ? "Save changes" : "Save tenant"}
                 </Button>
-                <Button type="button" variant="ghost" onClick={() => setOpen(false)}>
+                <Button type="button" variant="ghost" onClick={resetForm}>
                   Cancel
                 </Button>
               </div>
@@ -162,11 +212,21 @@ export function TenantsPage() {
       ) : (
         <ul className="divide-y divide-[var(--color-border)] overflow-hidden rounded-lg border border-[var(--color-border)] bg-white">
           {filtered.map((t) => (
-            <li key={t.id} className="px-4 py-3">
-              <p className="font-medium">{t.full_name}</p>
-              <p className="text-sm text-[var(--color-muted-foreground)]">
-                {[t.email, t.phone].filter(Boolean).join(" · ") || "No contact"}
-              </p>
+            <li
+              key={t.id}
+              className="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+            >
+              <div>
+                <p className="font-medium">{t.full_name}</p>
+                <p className="text-sm text-[var(--color-muted-foreground)]">
+                  {[t.email, t.phone].filter(Boolean).join(" · ") ||
+                    "No contact"}
+                </p>
+              </div>
+              <RowActions
+                onEdit={() => startEdit(t)}
+                onDelete={() => void onDelete(t.id)}
+              />
             </li>
           ))}
         </ul>

@@ -2,7 +2,12 @@ import * as React from "react";
 import { Plus } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/contexts/auth-context";
-import { createProperty, useProperties } from "@/hooks/use-data";
+import {
+  createProperty,
+  deleteProperty,
+  updateProperty,
+  useProperties,
+} from "@/hooks/use-data";
 import { formatCents, parseDollarsInput } from "@/lib/money";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -18,55 +23,76 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/components/ui/toast";
-import type { PropertyStatus } from "@/types/database";
+import { confirmDelete, RowActions } from "@/components/row-actions";
+import type { Property, PropertyStatus } from "@/types/database";
+
+const emptyForm = {
+  name: "",
+  address_line1: "",
+  city: "",
+  state: "",
+  postal_code: "",
+  purchase_price: "",
+};
 
 export function PropertiesPage() {
   const { user } = useAuth();
   const { data, loading, error, reload } = useProperties();
   const { toast } = useToast();
   const [open, setOpen] = React.useState(false);
+  const [editingId, setEditingId] = React.useState<string | null>(null);
   const [saving, setSaving] = React.useState(false);
-  const [form, setForm] = React.useState({
-    name: "",
-    address_line1: "",
-    city: "",
-    state: "",
-    postal_code: "",
-    purchase_price: "",
-  });
+  const [form, setForm] = React.useState(emptyForm);
 
-  async function onCreate(e: React.FormEvent) {
+  function startEdit(p: Property) {
+    setEditingId(p.id);
+    setOpen(true);
+    setForm({
+      name: p.name,
+      address_line1: p.address_line1,
+      city: p.city,
+      state: p.state,
+      postal_code: p.postal_code,
+      purchase_price:
+        p.purchase_price_cents != null
+          ? String(p.purchase_price_cents / 100)
+          : "",
+    });
+  }
+
+  function resetForm() {
+    setOpen(false);
+    setEditingId(null);
+    setForm(emptyForm);
+  }
+
+  async function onSave(e: React.FormEvent) {
     e.preventDefault();
     if (!user) return;
     setSaving(true);
     try {
-      await createProperty(
-        {
-          name: form.name,
-          address_line1: form.address_line1,
-          address_line2: null,
-          city: form.city,
-          state: form.state,
-          postal_code: form.postal_code,
-          country: "US",
-          property_type: "residential",
-          purchase_price_cents: parseDollarsInput(form.purchase_price),
-          purchase_date: null,
-          status: "active" as PropertyStatus,
-          notes: null,
-        },
-        user.id,
-      );
-      toast({ title: "Property added", variant: "success" });
-      setOpen(false);
-      setForm({
-        name: "",
-        address_line1: "",
-        city: "",
-        state: "",
-        postal_code: "",
-        purchase_price: "",
-      });
+      const payload = {
+        name: form.name,
+        address_line1: form.address_line1,
+        address_line2: null as string | null,
+        city: form.city,
+        state: form.state,
+        postal_code: form.postal_code,
+        country: "US",
+        property_type: "residential",
+        purchase_price_cents: parseDollarsInput(form.purchase_price),
+        purchase_date: null as string | null,
+        status: "active" as PropertyStatus,
+        notes: null as string | null,
+      };
+      if (editingId) {
+        await updateProperty(editingId, payload);
+        toast({ title: "Property updated", variant: "success" });
+      } else {
+        await createProperty(payload, user.id);
+        toast({ title: "Property added", variant: "success" });
+      }
+      resetForm();
       reload();
     } catch (err) {
       toast({
@@ -76,6 +102,22 @@ export function PropertiesPage() {
       });
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function onDelete(id: string) {
+    if (!confirmDelete("property and related units/leases/ledger lines")) return;
+    try {
+      await deleteProperty(id);
+      toast({ title: "Property deleted", variant: "success" });
+      if (editingId === id) resetForm();
+      reload();
+    } catch (err) {
+      toast({
+        title: "Could not delete",
+        description: err instanceof Error ? err.message : "Unknown error",
+        variant: "destructive",
+      });
     }
   }
 
@@ -93,7 +135,14 @@ export function PropertiesPage() {
             Assets you own and operate.
           </p>
         </div>
-        <Button onClick={() => setOpen((v) => !v)} size="sm">
+        <Button
+          onClick={() => {
+            setEditingId(null);
+            setForm(emptyForm);
+            setOpen((v) => !v);
+          }}
+          size="sm"
+        >
           <Plus className="h-4 w-4" />
           Add
         </Button>
@@ -102,22 +151,57 @@ export function PropertiesPage() {
       {open ? (
         <Card>
           <CardHeader>
-            <CardTitle>New property</CardTitle>
-            <CardDescription>Purchase price is stored as integer cents.</CardDescription>
+            <CardTitle>{editingId ? "Edit property" : "New property"}</CardTitle>
+            <CardDescription>
+              Purchase price is stored as integer cents.
+            </CardDescription>
           </CardHeader>
           <CardContent>
-            <form className="grid gap-3 sm:grid-cols-2" onSubmit={(e) => void onCreate(e)}>
-              <Field label="Name" value={form.name} onChange={(v) => setForm({ ...form, name: v })} required />
-              <Field label="Address" value={form.address_line1} onChange={(v) => setForm({ ...form, address_line1: v })} required />
-              <Field label="City" value={form.city} onChange={(v) => setForm({ ...form, city: v })} required />
-              <Field label="State" value={form.state} onChange={(v) => setForm({ ...form, state: v })} required />
-              <Field label="ZIP" value={form.postal_code} onChange={(v) => setForm({ ...form, postal_code: v })} required />
-              <Field label="Purchase price ($)" value={form.purchase_price} onChange={(v) => setForm({ ...form, purchase_price: v })} inputMode="decimal" />
+            <form
+              className="grid gap-3 sm:grid-cols-2"
+              onSubmit={(e) => void onSave(e)}
+            >
+              <Field
+                label="Name"
+                value={form.name}
+                onChange={(v) => setForm({ ...form, name: v })}
+                required
+              />
+              <Field
+                label="Address"
+                value={form.address_line1}
+                onChange={(v) => setForm({ ...form, address_line1: v })}
+                required
+              />
+              <Field
+                label="City"
+                value={form.city}
+                onChange={(v) => setForm({ ...form, city: v })}
+                required
+              />
+              <Field
+                label="State"
+                value={form.state}
+                onChange={(v) => setForm({ ...form, state: v })}
+                required
+              />
+              <Field
+                label="ZIP"
+                value={form.postal_code}
+                onChange={(v) => setForm({ ...form, postal_code: v })}
+                required
+              />
+              <Field
+                label="Purchase price ($)"
+                value={form.purchase_price}
+                onChange={(v) => setForm({ ...form, purchase_price: v })}
+                inputMode="decimal"
+              />
               <div className="flex gap-2 sm:col-span-2">
                 <Button type="submit" disabled={saving}>
-                  {saving ? "Saving…" : "Save property"}
+                  {saving ? "Saving…" : editingId ? "Save changes" : "Save property"}
                 </Button>
-                <Button type="button" variant="ghost" onClick={() => setOpen(false)}>
+                <Button type="button" variant="ghost" onClick={resetForm}>
                   Cancel
                 </Button>
               </div>
@@ -126,9 +210,7 @@ export function PropertiesPage() {
         </Card>
       ) : null}
 
-      {error ? (
-        <p className="text-sm text-red-700">{error}</p>
-      ) : null}
+      {error ? <p className="text-sm text-red-700">{error}</p> : null}
 
       {loading ? (
         <div className="space-y-2">
@@ -150,7 +232,7 @@ export function PropertiesPage() {
           {data.map((p) => (
             <li key={p.id}>
               <Card>
-                <CardContent className="flex flex-col gap-2 p-4 sm:flex-row sm:items-center sm:justify-between">
+                <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <div className="flex items-center gap-2">
                       <p className="font-semibold">{p.name}</p>
@@ -166,9 +248,15 @@ export function PropertiesPage() {
                         : "—"}
                     </p>
                   </div>
-                  <Button asChild variant="outline" size="sm">
-                    <Link to={`/units?property=${p.id}`}>View units</Link>
-                  </Button>
+                  <div className="flex flex-col gap-2 sm:items-end">
+                    <Button asChild variant="outline" size="sm">
+                      <Link to={`/units?property=${p.id}`}>View units</Link>
+                    </Button>
+                    <RowActions
+                      onEdit={() => startEdit(p)}
+                      onDelete={() => void onDelete(p.id)}
+                    />
+                  </div>
                 </CardContent>
               </Card>
             </li>

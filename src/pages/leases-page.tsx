@@ -3,6 +3,8 @@ import { Plus, Upload } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import {
   createLease,
+  deleteLease,
+  updateLease,
   uploadLeaseDocument,
   useLeases,
   useTenants,
@@ -23,7 +25,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/components/ui/toast";
-import type { LeaseStatus } from "@/types/database";
+import { confirmDelete, RowActions } from "@/components/row-actions";
+import type { LeaseStatus, LeaseWithRelations } from "@/types/database";
 
 export function LeasesPage() {
   const { user } = useAuth();
@@ -32,6 +35,7 @@ export function LeasesPage() {
   const tenants = useTenants();
   const { toast } = useToast();
   const [open, setOpen] = React.useState(false);
+  const [editingId, setEditingId] = React.useState<string | null>(null);
   const [saving, setSaving] = React.useState(false);
   const [file, setFile] = React.useState<File | null>(null);
   const [form, setForm] = React.useState({
@@ -44,7 +48,37 @@ export function LeasesPage() {
     status: "active" as LeaseStatus,
   });
 
-  async function onCreate(e: React.FormEvent) {
+  function startEdit(lease: LeaseWithRelations) {
+    setEditingId(lease.id);
+    setOpen(true);
+    setFile(null);
+    setForm({
+      unit_id: lease.unit_id,
+      tenant_id: lease.tenant_id,
+      start_date: lease.start_date,
+      end_date: lease.end_date ?? "",
+      rent: String(lease.rent_cents / 100),
+      deposit: String(lease.deposit_cents / 100),
+      status: lease.status,
+    });
+  }
+
+  function resetForm() {
+    setOpen(false);
+    setEditingId(null);
+    setFile(null);
+    setForm({
+      unit_id: "",
+      tenant_id: "",
+      start_date: "",
+      end_date: "",
+      rent: "",
+      deposit: "",
+      status: "active",
+    });
+  }
+
+  async function onSave(e: React.FormEvent) {
     e.preventDefault();
     if (!user) return;
     const rent = parseDollarsInput(form.rent);
@@ -54,27 +88,35 @@ export function LeasesPage() {
     }
     setSaving(true);
     try {
-      let document_path: string | null = null;
+      let document_path: string | null | undefined;
       if (file) {
         document_path = await uploadLeaseDocument(user.id, file);
       }
-      await createLease(
-        {
-          unit_id: form.unit_id,
-          tenant_id: form.tenant_id,
-          status: form.status,
-          start_date: form.start_date,
-          end_date: form.end_date || null,
-          rent_cents: rent,
-          deposit_cents: parseDollarsInput(form.deposit) ?? 0,
-          document_path,
-          notes: null,
-        },
-        user.id,
-      );
-      toast({ title: "Lease created", variant: "success" });
-      setOpen(false);
-      setFile(null);
+      const payload = {
+        unit_id: form.unit_id,
+        tenant_id: form.tenant_id,
+        status: form.status,
+        start_date: form.start_date,
+        end_date: form.end_date || null,
+        rent_cents: rent,
+        deposit_cents: parseDollarsInput(form.deposit) ?? 0,
+        notes: null as string | null,
+        ...(document_path !== undefined ? { document_path } : {}),
+      };
+      if (editingId) {
+        await updateLease(editingId, payload);
+        toast({ title: "Lease updated", variant: "success" });
+      } else {
+        await createLease(
+          {
+            ...payload,
+            document_path: document_path ?? null,
+          },
+          user.id,
+        );
+        toast({ title: "Lease created", variant: "success" });
+      }
+      resetForm();
       leases.reload();
     } catch (err) {
       toast({
@@ -84,6 +126,22 @@ export function LeasesPage() {
       });
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function onDelete(id: string) {
+    if (!confirmDelete("lease")) return;
+    try {
+      await deleteLease(id);
+      toast({ title: "Lease deleted", variant: "success" });
+      if (editingId === id) resetForm();
+      leases.reload();
+    } catch (err) {
+      toast({
+        title: "Could not delete",
+        description: err instanceof Error ? err.message : "Unknown error",
+        variant: "destructive",
+      });
     }
   }
 
@@ -101,7 +159,13 @@ export function LeasesPage() {
             Agreements with PDF uploads to Supabase Storage.
           </p>
         </div>
-        <Button onClick={() => setOpen((v) => !v)} size="sm">
+        <Button
+          onClick={() => {
+            resetForm();
+            setOpen((v) => !v);
+          }}
+          size="sm"
+        >
           <Plus className="h-4 w-4" />
           Add
         </Button>
@@ -110,13 +174,13 @@ export function LeasesPage() {
       {open ? (
         <Card>
           <CardHeader>
-            <CardTitle>New lease</CardTitle>
+            <CardTitle>{editingId ? "Edit lease" : "New lease"}</CardTitle>
             <CardDescription>
               Rent and deposit amounts are stored as integer cents.
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <form className="grid gap-3 sm:grid-cols-2" onSubmit={(e) => void onCreate(e)}>
+            <form className="grid gap-3 sm:grid-cols-2" onSubmit={(e) => void onSave(e)}>
               <SelectField
                 id="unit_id"
                 label="Unit"
@@ -197,9 +261,9 @@ export function LeasesPage() {
               </div>
               <div className="flex gap-2 sm:col-span-2">
                 <Button type="submit" disabled={saving}>
-                  {saving ? "Saving…" : "Save lease"}
+                  {saving ? "Saving…" : editingId ? "Save changes" : "Save lease"}
                 </Button>
-                <Button type="button" variant="ghost" onClick={() => setOpen(false)}>
+                <Button type="button" variant="ghost" onClick={resetForm}>
                   Cancel
                 </Button>
               </div>
@@ -229,7 +293,7 @@ export function LeasesPage() {
           {leases.data.map((lease) => (
             <li key={lease.id}>
               <Card>
-                <CardContent className="space-y-1 p-4">
+                <CardContent className="space-y-3 p-4">
                   <div className="flex flex-wrap items-center gap-2">
                     <p className="font-semibold">
                       {lease.tenant?.full_name ?? "Tenant"} ·{" "}
@@ -254,6 +318,10 @@ export function LeasesPage() {
                     Rent {formatCents(lease.rent_cents)} · Deposit{" "}
                     {formatCents(lease.deposit_cents)}
                   </p>
+                  <RowActions
+                    onEdit={() => startEdit(lease)}
+                    onDelete={() => void onDelete(lease.id)}
+                  />
                 </CardContent>
               </Card>
             </li>

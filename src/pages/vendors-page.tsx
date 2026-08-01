@@ -5,8 +5,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/contexts/auth-context";
+import { confirmDelete, RowActions } from "@/components/row-actions";
 import { useOpsLists } from "@/hooks/use-ops";
-import { demoAddVendor } from "@/lib/demo-store";
+import { demoAddVendor, demoDeleteVendor } from "@/lib/demo-store";
 import { useToast } from "@/components/ui/toast";
 
 export function VendorsPage() {
@@ -66,13 +67,26 @@ export function VendorsPage() {
       ) : null}
       <ul className="divide-y overflow-hidden rounded-lg border bg-white">
         {vendors.map((v) => (
-          <li key={v.id} className="px-4 py-3">
-            <p className="font-medium">{v.name}</p>
-            <p className="text-sm text-[var(--color-muted-foreground)]">
-              {v.trade}
-              {v.phone ? ` · ${v.phone}` : ""}
-              {v.notes ? ` · ${v.notes}` : ""}
-            </p>
+          <li
+            key={v.id}
+            className="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+          >
+            <div>
+              <p className="font-medium">{v.name}</p>
+              <p className="text-sm text-[var(--color-muted-foreground)]">
+                {v.trade}
+                {v.phone ? ` · ${v.phone}` : ""}
+                {v.notes ? ` · ${v.notes}` : ""}
+              </p>
+            </div>
+            <RowActions
+              onDelete={() => {
+                if (!confirmDelete("vendor")) return;
+                demoDeleteVendor(v.id);
+                reload();
+                toast({ title: "Vendor deleted", variant: "success" });
+              }}
+            />
           </li>
         ))}
       </ul>

@@ -7,9 +7,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/contexts/auth-context";
 import { useOpsLists } from "@/hooks/use-ops";
-import { demoAddTicket, demoUpdateTicket } from "@/lib/demo-store";
+import {
+  demoAddTicket,
+  demoDeleteTicket,
+  demoUpdateTicket,
+} from "@/lib/demo-store";
 import { formatCents, parseDollarsInput } from "@/lib/money";
 import { useToast } from "@/components/ui/toast";
+import { confirmDelete, RowActions } from "@/components/row-actions";
 
 export function MaintenancePage() {
   const { user } = useAuth();
@@ -140,8 +145,25 @@ export function MaintenancePage() {
                       >
                         Close
                       </Button>
+                      <RowActions
+                        onDelete={() => {
+                          if (!confirmDelete("work order")) return;
+                          demoDeleteTicket(t.id);
+                          reload();
+                          toast({ title: "Ticket deleted", variant: "success" });
+                        }}
+                      />
                     </div>
-                  ) : null}
+                  ) : (
+                    <RowActions
+                      onDelete={() => {
+                        if (!confirmDelete("work order")) return;
+                        demoDeleteTicket(t.id);
+                        reload();
+                        toast({ title: "Ticket deleted", variant: "success" });
+                      }}
+                    />
+                  )}
                 </CardContent>
               </Card>
             </li>

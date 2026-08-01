@@ -3,6 +3,8 @@ import { Plus, Upload } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import {
   createTransaction,
+  deleteTransaction,
+  updateTransaction,
   uploadReceipt,
   useProperties,
   useTransactions,
@@ -29,8 +31,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/components/ui/toast";
+import { confirmDelete, RowActions } from "@/components/row-actions";
 import {
   TRANSACTION_CATEGORY_LABELS,
+  type Transaction,
   type TransactionType,
 } from "@/types/database";
 
@@ -51,6 +55,7 @@ export function TransactionsPage() {
   const { data, loading, error, reload } = useTransactions();
   const { toast } = useToast();
   const [open, setOpen] = React.useState(false);
+  const [editingId, setEditingId] = React.useState<string | null>(null);
   const [saving, setSaving] = React.useState(false);
   const [file, setFile] = React.useState<File | null>(null);
   const [typeFilter, setTypeFilter] = React.useState<"all" | TransactionType>(
@@ -66,6 +71,34 @@ export function TransactionsPage() {
     occurred_on: new Date().toISOString().slice(0, 10),
     description: "",
   });
+
+  function startEdit(t: Transaction) {
+    setEditingId(t.id);
+    setOpen(true);
+    setFile(null);
+    setForm({
+      property_id: t.property_id,
+      type: t.type,
+      category: t.category,
+      amount: String(t.amount_cents / 100),
+      occurred_on: t.occurred_on,
+      description: t.description ?? "",
+    });
+  }
+
+  function resetForm() {
+    setOpen(false);
+    setEditingId(null);
+    setFile(null);
+    setForm({
+      property_id: "",
+      type: "income",
+      category: "rent",
+      amount: "",
+      occurred_on: new Date().toISOString().slice(0, 10),
+      description: "",
+    });
+  }
 
   const rows = React.useMemo(() => {
     let list = [...data];
@@ -107,23 +140,35 @@ export function TransactionsPage() {
       if (file) {
         receipt_path = await uploadReceipt(user.id, file);
       }
-      await createTransaction(
-        {
+      if (editingId) {
+        await updateTransaction(editingId, {
           property_id: form.property_id,
-          unit_id: null,
-          lease_id: null,
           type: form.type,
           category: form.category,
           amount_cents: amount,
           occurred_on: form.occurred_on,
           description: form.description || null,
-          receipt_path,
-        },
-        user.id,
-      );
-      toast({ title: "Transaction recorded", variant: "success" });
-      setOpen(false);
-      setFile(null);
+          ...(receipt_path ? { receipt_path } : {}),
+        });
+        toast({ title: "Transaction updated", variant: "success" });
+      } else {
+        await createTransaction(
+          {
+            property_id: form.property_id,
+            unit_id: null,
+            lease_id: null,
+            type: form.type,
+            category: form.category,
+            amount_cents: amount,
+            occurred_on: form.occurred_on,
+            description: form.description || null,
+            receipt_path,
+          },
+          user.id,
+        );
+        toast({ title: "Transaction recorded", variant: "success" });
+      }
+      resetForm();
       reload();
     } catch (err) {
       toast({
@@ -133,6 +178,22 @@ export function TransactionsPage() {
       });
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function onDelete(id: string) {
+    if (!confirmDelete("ledger entry")) return;
+    try {
+      await deleteTransaction(id);
+      toast({ title: "Transaction deleted", variant: "success" });
+      if (editingId === id) resetForm();
+      reload();
+    } catch (err) {
+      toast({
+        title: "Could not delete",
+        description: err instanceof Error ? err.message : "Unknown error",
+        variant: "destructive",
+      });
     }
   }
 
@@ -150,7 +211,7 @@ export function TransactionsPage() {
             All income and expenses in cents.
           </p>
         </div>
-        <Button onClick={() => setOpen((v) => !v)} size="sm">
+        <Button onClick={() => { resetForm(); setOpen((v) => !v); }} size="sm">
           <Plus className="h-4 w-4" />
           Add
         </Button>
@@ -172,7 +233,7 @@ export function TransactionsPage() {
       {open ? (
         <Card>
           <CardHeader>
-            <CardTitle>New transaction</CardTitle>
+            <CardTitle>{editingId ? "Edit transaction" : "New transaction"}</CardTitle>
             <CardDescription>
               Attach a receipt photo or PDF — uploaded to Supabase Storage.
             </CardDescription>
@@ -280,9 +341,13 @@ export function TransactionsPage() {
               </div>
               <div className="flex gap-2 sm:col-span-2">
                 <Button type="submit" disabled={saving}>
-                  {saving ? "Saving…" : "Save transaction"}
+                  {saving
+                    ? "Saving…"
+                    : editingId
+                      ? "Save changes"
+                      : "Save transaction"}
                 </Button>
-                <Button type="button" variant="ghost" onClick={() => setOpen(false)}>
+                <Button type="button" variant="ghost" onClick={resetForm}>
                   Cancel
                 </Button>
               </div>
@@ -316,6 +381,7 @@ export function TransactionsPage() {
                 <Th onClick={() => toggleSort("amount_cents")} className="text-right">
                   Amount
                 </Th>
+                <th className="px-3 py-2 font-medium">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -352,6 +418,12 @@ export function TransactionsPage() {
                   >
                     {t.type === "income" ? "+" : "−"}
                     {formatCents(t.amount_cents)}
+                  </td>
+                  <td className="px-3 py-3">
+                    <RowActions
+                      onEdit={() => startEdit(t)}
+                      onDelete={() => void onDelete(t.id)}
+                    />
                   </td>
                 </tr>
               ))}

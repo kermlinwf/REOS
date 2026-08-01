@@ -304,6 +304,174 @@ export function demoCreateTransaction(
   return row;
 }
 
+export function demoUpdateProperty(id: string, patch: Partial<Property>) {
+  mutate((s) => {
+    const row = s.properties.find((p) => p.id === id);
+    if (!row) return;
+    Object.assign(row, patch, { updated_at: nowIso() });
+    audit(s, "property", id, "update", row.name);
+  });
+}
+
+export function demoDeleteProperty(id: string) {
+  mutate((s) => {
+    const unitIds = s.units
+      .filter((u) => u.property_id === id)
+      .map((u) => u.id);
+    s.properties = s.properties.filter((p) => p.id !== id);
+    s.units = s.units.filter((u) => u.property_id !== id);
+    s.leases = s.leases.filter((l) => !unitIds.includes(l.unit_id));
+    s.transactions = s.transactions.filter((t) => t.property_id !== id);
+    s.mortgages = s.mortgages.filter((m) => m.property_id !== id);
+    s.tickets = s.tickets.filter((t) => t.property_id !== id);
+    s.recurringBills = s.recurringBills.filter((b) => b.property_id !== id);
+    s.budgets = s.budgets.filter((b) => b.property_id !== id);
+    s.turns = s.turns.filter((t) => t.property_id !== id);
+    s.rentPayments = s.rentPayments.filter((p) => p.property_id !== id);
+    s.depositEvents = s.depositEvents.filter((d) => d.property_id !== id);
+    s.documents = s.documents.filter((d) => d.property_id !== id);
+    s.inspections = s.inspections.filter((i) => i.property_id !== id);
+    audit(s, "property", id, "delete", "cascade");
+  });
+}
+
+export function demoUpdateUnit(id: string, patch: Partial<Unit>) {
+  mutate((s) => {
+    const row = s.units.find((u) => u.id === id);
+    if (!row) return;
+    Object.assign(row, patch, { updated_at: nowIso() });
+    audit(s, "unit", id, "update", row.label);
+  });
+}
+
+export function demoDeleteUnit(id: string) {
+  mutate((s) => {
+    s.units = s.units.filter((u) => u.id !== id);
+    s.leases = s.leases.filter((l) => l.unit_id !== id);
+    s.rentPayments = s.rentPayments.filter((p) => p.unit_id !== id);
+    s.turns = s.turns.filter((t) => t.unit_id !== id);
+    s.tickets = s.tickets.map((t) =>
+      t.unit_id === id ? { ...t, unit_id: null } : t,
+    );
+    audit(s, "unit", id, "delete", "removed");
+  });
+}
+
+export function demoUpdateTenant(id: string, patch: Partial<Tenant>) {
+  mutate((s) => {
+    const row = s.tenants.find((t) => t.id === id);
+    if (!row) return;
+    Object.assign(row, patch, { updated_at: nowIso() });
+    audit(s, "tenant", id, "update", row.full_name);
+  });
+}
+
+export function demoDeleteTenant(id: string) {
+  mutate((s) => {
+    s.tenants = s.tenants.filter((t) => t.id !== id);
+    s.leases = s.leases.filter((l) => l.tenant_id !== id);
+    audit(s, "tenant", id, "delete", "removed");
+  });
+}
+
+export function demoUpdateLease(id: string, patch: Partial<Lease>) {
+  mutate((s) => {
+    const row = s.leases.find((l) => l.id === id);
+    if (!row) return;
+    Object.assign(row, patch, { updated_at: nowIso() });
+    audit(s, "lease", id, "update", row.status);
+  });
+}
+
+export function demoDeleteLease(id: string) {
+  mutate((s) => {
+    s.leases = s.leases.filter((l) => l.id !== id);
+    s.rentPayments = s.rentPayments.filter((p) => p.lease_id !== id);
+    s.depositEvents = s.depositEvents.filter((d) => d.lease_id !== id);
+    audit(s, "lease", id, "delete", "removed");
+  });
+}
+
+export function demoUpdateTransaction(id: string, patch: Partial<Transaction>) {
+  mutate((s) => {
+    const row = s.transactions.find((t) => t.id === id);
+    if (!row) return;
+    Object.assign(row, patch, { updated_at: nowIso() });
+    audit(s, "transaction", id, "update", `${row.type} ${row.amount_cents}`);
+  });
+}
+
+export function demoDeleteTransaction(id: string) {
+  mutate((s) => {
+    s.transactions = s.transactions.filter((t) => t.id !== id);
+    audit(s, "transaction", id, "delete", "removed");
+  });
+}
+
+export function demoUpdateRecurringBill(
+  id: string,
+  patch: Partial<RecurringBill>,
+) {
+  mutate((s) => {
+    const row = s.recurringBills.find((b) => b.id === id);
+    if (!row) return;
+    Object.assign(row, patch, { updated_at: nowIso() });
+    audit(s, "recurring_bill", id, "update", row.name);
+  });
+}
+
+export function demoDeleteRecurringBill(id: string) {
+  mutate((s) => {
+    s.recurringBills = s.recurringBills.filter((b) => b.id !== id);
+    audit(s, "recurring_bill", id, "delete", "removed");
+  });
+}
+
+export function demoDeleteVendor(id: string) {
+  mutate((s) => {
+    s.vendors = s.vendors.filter((v) => v.id !== id);
+    s.tickets = s.tickets.map((t) =>
+      t.vendor_id === id ? { ...t, vendor_id: null } : t,
+    );
+    audit(s, "vendor", id, "delete", "removed");
+  });
+}
+
+export function demoDeleteTicket(id: string) {
+  mutate((s) => {
+    s.tickets = s.tickets.filter((t) => t.id !== id);
+    audit(s, "ticket", id, "delete", "removed");
+  });
+}
+
+export function demoDeleteDocument(id: string) {
+  mutate((s) => {
+    s.documents = s.documents.filter((d) => d.id !== id);
+    audit(s, "document", id, "delete", "removed");
+  });
+}
+
+export function demoDeleteMortgage(id: string) {
+  mutate((s) => {
+    s.mortgages = s.mortgages.filter((m) => m.id !== id);
+    audit(s, "mortgage", id, "delete", "removed");
+  });
+}
+
+export function demoDeleteDeal(id: string) {
+  mutate((s) => {
+    s.deals = s.deals.filter((d) => d.id !== id);
+    audit(s, "deal", id, "delete", "removed");
+  });
+}
+
+export function demoDeleteCommunication(id: string) {
+  mutate((s) => {
+    s.communications = s.communications.filter((c) => c.id !== id);
+    audit(s, "communication", id, "delete", "removed");
+  });
+}
+
 export function demoUploadPath(ownerId: string, file: File): string {
   return `demo/${ownerId}/${file.name}`;
 }

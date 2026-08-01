@@ -7,11 +7,21 @@ import {
   demoCreateTenant,
   demoCreateTransaction,
   demoCreateUnit,
+  demoDeleteLease,
+  demoDeleteProperty,
+  demoDeleteTenant,
+  demoDeleteTransaction,
+  demoDeleteUnit,
   demoListLeases,
   demoListProperties,
   demoListTenants,
   demoListTransactions,
   demoListUnits,
+  demoUpdateLease,
+  demoUpdateProperty,
+  demoUpdateTenant,
+  demoUpdateTransaction,
+  demoUpdateUnit,
   demoUploadPath,
 } from "@/lib/demo-store";
 import type {
@@ -222,6 +232,96 @@ export async function createTransaction(
     .single();
   if (error) throw new Error(error.message);
   return data as Transaction;
+}
+
+export async function updateProperty(id: string, patch: Partial<Property>) {
+  if (isDemoSessionActive()) {
+    demoUpdateProperty(id, patch);
+    return;
+  }
+  const { error } = await getSupabase().from("properties").update(patch).eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
+export async function deleteProperty(id: string) {
+  if (isDemoSessionActive()) {
+    demoDeleteProperty(id);
+    return;
+  }
+  const { error } = await getSupabase().from("properties").delete().eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
+export async function updateUnit(id: string, patch: Partial<Unit>) {
+  if (isDemoSessionActive()) {
+    demoUpdateUnit(id, patch);
+    return;
+  }
+  const { error } = await getSupabase().from("units").update(patch).eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
+export async function deleteUnit(id: string) {
+  if (isDemoSessionActive()) {
+    demoDeleteUnit(id);
+    return;
+  }
+  const { error } = await getSupabase().from("units").delete().eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
+export async function updateTenant(id: string, patch: Partial<Tenant>) {
+  if (isDemoSessionActive()) {
+    demoUpdateTenant(id, patch);
+    return;
+  }
+  const { error } = await getSupabase().from("tenants").update(patch).eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
+export async function deleteTenant(id: string) {
+  if (isDemoSessionActive()) {
+    demoDeleteTenant(id);
+    return;
+  }
+  const { error } = await getSupabase().from("tenants").delete().eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
+export async function updateLease(id: string, patch: Partial<Lease>) {
+  if (isDemoSessionActive()) {
+    demoUpdateLease(id, patch);
+    return;
+  }
+  const { error } = await getSupabase().from("leases").update(patch).eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
+export async function deleteLease(id: string) {
+  if (isDemoSessionActive()) {
+    demoDeleteLease(id);
+    return;
+  }
+  const { error } = await getSupabase().from("leases").delete().eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
+export async function updateTransaction(id: string, patch: Partial<Transaction>) {
+  if (isDemoSessionActive()) {
+    demoUpdateTransaction(id, patch);
+    return;
+  }
+  const { error } = await getSupabase().from("transactions").update(patch).eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
+export async function deleteTransaction(id: string) {
+  if (isDemoSessionActive()) {
+    demoDeleteTransaction(id);
+    return;
+  }
+  const { error } = await getSupabase().from("transactions").delete().eq("id", id);
+  if (error) throw new Error(error.message);
 }
 
 export async function uploadReceipt(
