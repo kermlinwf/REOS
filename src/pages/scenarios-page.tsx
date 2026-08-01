@@ -3,25 +3,32 @@ import { PageHeader } from "@/components/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { TermHelp } from "@/components/term-help";
 import { useOpsLists } from "@/hooks/use-ops";
 import { computeFinancialSummary, formatCapRate } from "@/lib/finance";
 import { formatCents } from "@/lib/money";
 
 export function ScenariosPage() {
-  const { transactions, properties } = useOpsLists();
+  const { transactions, properties, mortgages } = useOpsLists();
   const [rentBump, setRentBump] = React.useState("5");
   const [price, setPrice] = React.useState("");
 
   const basis =
     properties.reduce((a, p) => a + (p.purchase_price_cents ?? 0), 0) || null;
 
+  const monthlyMortgage = mortgages.reduce(
+    (acc, m) => acc + m.payment_cents,
+    0,
+  );
   const base = computeFinancialSummary(
     transactions.map((t) => ({
       category: t.category,
       amount_cents: t.amount_cents,
       type: t.type,
+      occurred_on: t.occurred_on,
     })),
     basis,
+    { monthlyMortgagePaymentsCents: monthlyMortgage },
   );
 
   const bump = Number(rentBump) || 0;
@@ -107,7 +114,10 @@ export function ScenariosPage() {
 function Row({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex justify-between gap-3 text-sm">
-      <span className="text-[var(--color-muted-foreground)]">{label}</span>
+      <span className="inline-flex items-center gap-1 text-[var(--color-muted-foreground)]">
+        {label}
+        <TermHelp term={label} />
+      </span>
       <span className="font-medium tabular-nums">{value}</span>
     </div>
   );

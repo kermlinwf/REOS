@@ -753,3 +753,12 @@ export function demoAddMortgage(
   });
   return row;
 }
+
+export function demoUpdateMortgage(id: string, patch: Partial<Mortgage>) {
+  mutate((s) => {
+    const row = s.mortgages.find((m) => m.id === id);
+    if (!row) return;
+    Object.assign(row, patch, { updated_at: nowIso() });
+    audit(s, "mortgage", id, "update", row.lender);
+  });
+}

@@ -9,7 +9,7 @@ import { TRANSACTION_CATEGORY_LABELS } from "@/types/database";
 import { useToast } from "@/components/ui/toast";
 
 export function TaxExportPage() {
-  const { transactions, properties } = useOpsLists();
+  const { transactions, properties, mortgages } = useOpsLists();
   const { toast } = useToast();
   const year = new Date().getFullYear();
   const [selectedYear, setSelectedYear] = React.useState(String(year));
@@ -52,13 +52,18 @@ export function TaxExportPage() {
 
   const byProperty = properties.map((p) => {
     const lines = rows.filter((t) => t.property_id === p.id);
+    const monthlyMortgage = mortgages
+      .filter((m) => m.property_id === p.id)
+      .reduce((acc, m) => acc + m.payment_cents, 0);
     const summary = computeFinancialSummary(
       lines.map((t) => ({
         category: t.category,
         amount_cents: t.amount_cents,
         type: t.type,
+        occurred_on: t.occurred_on,
       })),
       p.purchase_price_cents,
+      { monthlyMortgagePaymentsCents: monthlyMortgage },
     );
     return { p, summary, count: lines.length };
   });
@@ -98,6 +103,8 @@ export function TaxExportPage() {
                 <p>Income {formatCents(summary.grossIncomeCents)}</p>
                 <p>OpEx {formatCents(summary.operatingExpensesCents)}</p>
                 <p>NOI {formatCents(summary.noiCents)}</p>
+                <p>Debt {formatCents(summary.debtServiceCents)}</p>
+                <p>Cash flow {formatCents(summary.netCashFlowCents)}</p>
               </CardContent>
             </Card>
           </li>

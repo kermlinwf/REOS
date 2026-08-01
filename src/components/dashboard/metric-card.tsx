@@ -1,6 +1,7 @@
 import type { LucideIcon } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { TermHelp } from "@/components/term-help";
 import { cn } from "@/lib/utils";
 
 export function MetricCard({
@@ -10,6 +11,7 @@ export function MetricCard({
   icon: Icon,
   trend,
   loading,
+  helpTerm,
 }: {
   title: string;
   value: string;
@@ -17,6 +19,8 @@ export function MetricCard({
   icon?: LucideIcon;
   trend?: "up" | "down" | "neutral";
   loading?: boolean;
+  /** Key in FINANCE_TERMS — shows a ? tooltip */
+  helpTerm?: string;
 }) {
   if (loading) {
     return (
@@ -35,11 +39,12 @@ export function MetricCard({
   return (
     <Card>
       <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2">
-        <CardTitle className="text-sm font-medium text-[var(--color-muted-foreground)]">
+        <CardTitle className="flex items-center gap-1 text-sm font-medium text-[var(--color-muted-foreground)]">
           {title}
+          {helpTerm ? <TermHelp term={helpTerm} /> : null}
         </CardTitle>
         {Icon ? (
-          <Icon className="h-4 w-4 text-[var(--color-muted-foreground)]" />
+          <Icon className="h-4 w-4 shrink-0 text-[var(--color-muted-foreground)]" />
         ) : null}
       </CardHeader>
       <CardContent>

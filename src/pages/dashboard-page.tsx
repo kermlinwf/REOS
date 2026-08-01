@@ -50,13 +50,19 @@ export function DashboardPage() {
     0,
   );
 
+  const monthlyMortgage = ops.mortgages.reduce(
+    (acc, m) => acc + m.payment_cents,
+    0,
+  );
   const summary = computeFinancialSummary(
     transactions.data.map((t) => ({
       category: t.category,
       amount_cents: t.amount_cents,
       type: t.type,
+      occurred_on: t.occurred_on,
     })),
     purchaseTotal || null,
+    { monthlyMortgagePaymentsCents: monthlyMortgage },
   );
 
   const occupied = units.data.filter((u) => u.status === "occupied").length;
@@ -117,6 +123,7 @@ export function DashboardPage() {
           title="NOI"
           value={formatCents(summary.noiCents)}
           hint="Income − OpEx"
+          helpTerm="NOI"
           icon={TrendingUp}
           trend={summary.noiCents >= 0 ? "up" : "down"}
           loading={loading}
@@ -125,6 +132,7 @@ export function DashboardPage() {
           title="Net Cash Flow"
           value={formatCents(summary.netCashFlowCents)}
           hint="NOI − CapEx − Debt"
+          helpTerm="Net Cash Flow"
           icon={Wallet}
           loading={loading}
         />
@@ -132,6 +140,7 @@ export function DashboardPage() {
           title="Cap Rate"
           value={formatCapRate(summary.capRate)}
           hint="NOI ÷ purchase basis"
+          helpTerm="Cap Rate"
           icon={CircleDollarSign}
           loading={loading}
         />
@@ -139,6 +148,7 @@ export function DashboardPage() {
           title="Occupancy"
           value={occupancy}
           hint={`${occupied}/${units.data.length} units`}
+          helpTerm="Occupancy"
           icon={Building2}
           loading={loading}
         />

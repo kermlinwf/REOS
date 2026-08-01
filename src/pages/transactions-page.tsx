@@ -8,6 +8,7 @@ import {
   uploadReceipt,
   useProperties,
   useTransactions,
+  useUnits,
 } from "@/hooks/use-data";
 import {
   OPEX_CATEGORIES,
@@ -44,14 +45,15 @@ const ALL_CATEGORIES = [
   ...OPEX_CATEGORIES,
   ...CAPEX_CATEGORIES,
   ...DEBT_CATEGORIES,
-  "other_expense",
 ] as const;
 
 type SortKey = "occurred_on" | "amount_cents" | "category";
+type UnitFilter = "all" | "property" | string;
 
 export function TransactionsPage() {
   const { user } = useAuth();
   const properties = useProperties();
+  const units = useUnits();
   const { data, loading, error, reload } = useTransactions();
   const { toast } = useToast();
   const [open, setOpen] = React.useState(false);
@@ -61,10 +63,13 @@ export function TransactionsPage() {
   const [typeFilter, setTypeFilter] = React.useState<"all" | TransactionType>(
     "all",
   );
+  const [propertyFilter, setPropertyFilter] = React.useState("all");
+  const [unitFilter, setUnitFilter] = React.useState<UnitFilter>("all");
   const [sortKey, setSortKey] = React.useState<SortKey>("occurred_on");
   const [sortDir, setSortDir] = React.useState<"asc" | "desc">("desc");
   const [form, setForm] = React.useState({
     property_id: "",
+    unit_id: "",
     type: "income" as TransactionType,
     category: "rent",
     amount: "",
@@ -72,12 +77,24 @@ export function TransactionsPage() {
     description: "",
   });
 
+  const formUnits = units.data.filter((u) => u.property_id === form.property_id);
+  const filterUnits =
+    propertyFilter === "all"
+      ? units.data
+      : units.data.filter((u) => u.property_id === propertyFilter);
+
+  function unitLabel(unitId: string | null | undefined) {
+    if (!unitId) return "Property-level";
+    return units.data.find((u) => u.id === unitId)?.label ?? "Unit";
+  }
+
   function startEdit(t: Transaction) {
     setEditingId(t.id);
     setOpen(true);
     setFile(null);
     setForm({
       property_id: t.property_id,
+      unit_id: t.unit_id ?? "",
       type: t.type,
       category: t.category,
       amount: String(t.amount_cents / 100),
@@ -92,6 +109,7 @@ export function TransactionsPage() {
     setFile(null);
     setForm({
       property_id: "",
+      unit_id: "",
       type: "income",
       category: "rent",
       amount: "",
@@ -105,6 +123,14 @@ export function TransactionsPage() {
     if (typeFilter !== "all") {
       list = list.filter((t) => t.type === typeFilter);
     }
+    if (propertyFilter !== "all") {
+      list = list.filter((t) => t.property_id === propertyFilter);
+    }
+    if (unitFilter === "property") {
+      list = list.filter((t) => !t.unit_id);
+    } else if (unitFilter !== "all") {
+      list = list.filter((t) => t.unit_id === unitFilter);
+    }
     list.sort((a, b) => {
       const av = a[sortKey];
       const bv = b[sortKey];
@@ -115,7 +141,7 @@ export function TransactionsPage() {
       return sortDir === "asc" ? cmp : -cmp;
     });
     return list;
-  }, [data, typeFilter, sortKey, sortDir]);
+  }, [data, typeFilter, propertyFilter, unitFilter, sortKey, sortDir]);
 
   function toggleSort(key: SortKey) {
     if (sortKey === key) {
@@ -134,6 +160,7 @@ export function TransactionsPage() {
       toast({ title: "Enter a valid amount", variant: "destructive" });
       return;
     }
+    const unit_id = form.unit_id || null;
     setSaving(true);
     try {
       let receipt_path: string | null = null;
@@ -143,6 +170,7 @@ export function TransactionsPage() {
       if (editingId) {
         await updateTransaction(editingId, {
           property_id: form.property_id,
+          unit_id,
           type: form.type,
           category: form.category,
           amount_cents: amount,
@@ -155,7 +183,7 @@ export function TransactionsPage() {
         await createTransaction(
           {
             property_id: form.property_id,
-            unit_id: null,
+            unit_id,
             lease_id: null,
             type: form.type,
             category: form.category,
@@ -208,10 +236,16 @@ export function TransactionsPage() {
             Ledger
           </h1>
           <p className="text-sm text-[var(--color-muted-foreground)]">
-            All income and expenses in cents.
+            Income and expenses by property and unit.
           </p>
         </div>
-        <Button onClick={() => { resetForm(); setOpen((v) => !v); }} size="sm">
+        <Button
+          onClick={() => {
+            resetForm();
+            setOpen((v) => !v);
+          }}
+          size="sm"
+        >
           <Plus className="h-4 w-4" />
           Add
         </Button>
@@ -230,17 +264,64 @@ export function TransactionsPage() {
         ))}
       </div>
 
+      <div className="grid gap-2 sm:grid-cols-2">
+        <div className="space-y-1.5">
+          <Label htmlFor="filter-property">Property</Label>
+          <select
+            id="filter-property"
+            className="flex h-11 w-full rounded-md border border-[var(--color-border)] bg-white px-3 text-sm"
+            value={propertyFilter}
+            onChange={(e) => {
+              setPropertyFilter(e.target.value);
+              setUnitFilter("all");
+            }}
+          >
+            <option value="all">All properties</option>
+            {properties.data.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="filter-unit">Unit</Label>
+          <select
+            id="filter-unit"
+            className="flex h-11 w-full rounded-md border border-[var(--color-border)] bg-white px-3 text-sm"
+            value={unitFilter}
+            onChange={(e) => setUnitFilter(e.target.value)}
+          >
+            <option value="all">All units</option>
+            <option value="property">Property-level only</option>
+            {filterUnits.map((u) => (
+              <option key={u.id} value={u.id}>
+                {propertyFilter === "all"
+                  ? `${properties.data.find((p) => p.id === u.property_id)?.name ?? "Property"} · ${u.label}`
+                  : u.label}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
       {open ? (
         <Card>
           <CardHeader>
-            <CardTitle>{editingId ? "Edit transaction" : "New transaction"}</CardTitle>
+            <CardTitle>
+              {editingId ? "Edit transaction" : "New transaction"}
+            </CardTitle>
             <CardDescription>
-              Attach a receipt photo or PDF — uploaded to Supabase Storage.
+              Assign a unit for unit-specific costs (repairs, rent). Leave blank
+              for whole-property items (insurance, mortgage).
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <form className="grid gap-3 sm:grid-cols-2" onSubmit={(e) => void onCreate(e)}>
-              <div className="space-y-1.5 sm:col-span-2">
+            <form
+              className="grid gap-3 sm:grid-cols-2"
+              onSubmit={(e) => void onCreate(e)}
+            >
+              <div className="space-y-1.5">
                 <Label htmlFor="property_id">Property</Label>
                 <select
                   id="property_id"
@@ -248,13 +329,36 @@ export function TransactionsPage() {
                   className="flex h-11 w-full rounded-md border border-[var(--color-border)] bg-white px-3 text-sm"
                   value={form.property_id}
                   onChange={(e) =>
-                    setForm({ ...form, property_id: e.target.value })
+                    setForm({
+                      ...form,
+                      property_id: e.target.value,
+                      unit_id: "",
+                    })
                   }
                 >
                   <option value="">Select…</option>
                   {properties.data.map((p) => (
                     <option key={p.id} value={p.id}>
                       {p.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="unit_id">Unit (optional)</Label>
+                <select
+                  id="unit_id"
+                  className="flex h-11 w-full rounded-md border border-[var(--color-border)] bg-white px-3 text-sm"
+                  value={form.unit_id}
+                  onChange={(e) =>
+                    setForm({ ...form, unit_id: e.target.value })
+                  }
+                  disabled={!form.property_id}
+                >
+                  <option value="">Property-level</option>
+                  {formUnits.map((u) => (
+                    <option key={u.id} value={u.id}>
+                      {u.label}
                     </option>
                   ))}
                 </select>
@@ -362,23 +466,32 @@ export function TransactionsPage() {
         <Skeleton className="h-40 w-full" />
       ) : rows.length === 0 ? (
         <EmptyState
-          title="Ledger is empty"
-          description="Record rent, fees, OpEx, CapEx, and debt service."
+          title={data.length === 0 ? "Ledger is empty" : "No matching entries"}
+          description={
+            data.length === 0
+              ? "Record rent, fees, OpEx, CapEx, and debt service."
+              : "Try another property or unit filter."
+          }
           action={
-            <Button size="sm" onClick={() => setOpen(true)}>
-              Add transaction
-            </Button>
+            data.length === 0 ? (
+              <Button size="sm" onClick={() => setOpen(true)}>
+                Add transaction
+              </Button>
+            ) : undefined
           }
         />
       ) : (
         <div className="overflow-x-auto rounded-lg border border-[var(--color-border)] bg-white">
-          <table className="w-full min-w-[640px] text-left text-sm">
+          <table className="w-full min-w-[720px] text-left text-sm">
             <thead className="border-b bg-[var(--color-muted)]/50 text-[var(--color-muted-foreground)]">
               <tr>
                 <Th onClick={() => toggleSort("occurred_on")}>Date</Th>
-                <th className="px-3 py-2 font-medium">Property</th>
+                <th className="px-3 py-2 font-medium">Property / Unit</th>
                 <Th onClick={() => toggleSort("category")}>Category</Th>
-                <Th onClick={() => toggleSort("amount_cents")} className="text-right">
+                <Th
+                  onClick={() => toggleSort("amount_cents")}
+                  className="text-right"
+                >
                   Amount
                 </Th>
                 <th className="px-3 py-2 font-medium">Actions</th>
@@ -389,11 +502,16 @@ export function TransactionsPage() {
                 <tr key={t.id} className="border-b last:border-0">
                   <td className="px-3 py-3 whitespace-nowrap">{t.occurred_on}</td>
                   <td className="px-3 py-3">
-                    {t.property?.name ?? "—"}
+                    <p>{t.property?.name ?? "—"}</p>
+                    <p className="text-xs text-[var(--color-muted-foreground)]">
+                      {unitLabel(t.unit_id)}
+                    </p>
                   </td>
                   <td className="px-3 py-3">
                     <div className="flex flex-wrap items-center gap-1.5">
-                      <Badge variant={t.type === "income" ? "success" : "muted"}>
+                      <Badge
+                        variant={t.type === "income" ? "success" : "muted"}
+                      >
                         {t.type}
                       </Badge>
                       <span>
