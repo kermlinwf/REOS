@@ -386,6 +386,35 @@ export function demoCreateTransaction(
   return row;
 }
 
+/** Bulk ledger insert (one audit line for the batch). */
+export function demoCreateTransactionsBulk(
+  inputs: Omit<Transaction, "id" | "created_at" | "updated_at" | "owner_id">[],
+  ownerId: string,
+): number {
+  if (inputs.length === 0) return 0;
+  const ts = nowIso();
+  mutate((s) => {
+    for (const input of inputs) {
+      const row: Transaction = {
+        ...input,
+        id: id(),
+        owner_id: ownerId,
+        created_at: ts,
+        updated_at: ts,
+      };
+      s.transactions.push(row);
+    }
+    audit(
+      s,
+      "transaction",
+      "bulk",
+      "create",
+      `imported ${inputs.length} ledger lines`,
+    );
+  });
+  return inputs.length;
+}
+
 export function demoUpdateProperty(id: string, patch: Partial<Property>) {
   mutate((s) => {
     const row = s.properties.find((p) => p.id === id);

@@ -6,6 +6,7 @@ import {
   demoCreateProperty,
   demoCreateTenant,
   demoCreateTransaction,
+  demoCreateTransactionsBulk,
   demoCreateUnit,
   demoDeleteLease,
   demoDeleteProperty,
@@ -232,6 +233,23 @@ export async function createTransaction(
     .single();
   if (error) throw new Error(error.message);
   return data as Transaction;
+}
+
+export async function createTransactionsBulk(
+  inputs: Omit<Transaction, "id" | "created_at" | "updated_at" | "owner_id">[],
+  ownerId: string,
+) {
+  if (inputs.length === 0) return 0;
+  if (isDemoSessionActive()) {
+    return demoCreateTransactionsBulk(inputs, ownerId);
+  }
+  const rows = inputs.map((input) => ({ ...input, owner_id: ownerId }));
+  const { data, error } = await getSupabase()
+    .from("transactions")
+    .insert(rows)
+    .select();
+  if (error) throw new Error(error.message);
+  return data?.length ?? 0;
 }
 
 export async function updateProperty(id: string, patch: Partial<Property>) {

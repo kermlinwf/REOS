@@ -1,5 +1,6 @@
 import * as React from "react";
 import { Plus, Upload } from "lucide-react";
+import { Link } from "react-router-dom";
 import { useAuth } from "@/contexts/auth-context";
 import {
   createTransaction,
@@ -239,16 +240,21 @@ export function TransactionsPage() {
             Income and expenses by property and unit.
           </p>
         </div>
-        <Button
-          onClick={() => {
-            resetForm();
-            setOpen((v) => !v);
-          }}
-          size="sm"
-        >
-          <Plus className="h-4 w-4" />
-          Add
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button asChild size="sm" variant="outline">
+            <Link to="/ledger-import">Import CSV</Link>
+          </Button>
+          <Button
+            onClick={() => {
+              resetForm();
+              setOpen((v) => !v);
+            }}
+            size="sm"
+          >
+            <Plus className="h-4 w-4" />
+            Add
+          </Button>
+        </div>
       </div>
 
       <div className="flex flex-wrap gap-2">

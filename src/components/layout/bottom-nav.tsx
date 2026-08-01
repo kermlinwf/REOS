@@ -42,6 +42,7 @@ export const moreLinks = [
   { to: "/recurring", label: "Recurring bills", icon: RefreshCw, group: "Money" },
   { to: "/property-pnl", label: "Property P&L", icon: Calculator, group: "Money" },
   { to: "/tax-export", label: "Tax export", icon: FolderOpen, group: "Money" },
+  { to: "/ledger-import", label: "Import CSV", icon: Receipt, group: "Money" },
   { to: "/backup", label: "Backup & restore", icon: FolderOpen, group: "Money" },
   { to: "/scenarios", label: "Scenarios", icon: Calculator, group: "Decide" },
   { to: "/deals", label: "Deal pipeline", icon: Handshake, group: "Decide" },

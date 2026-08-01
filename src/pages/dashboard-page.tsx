@@ -225,6 +225,7 @@ export function DashboardPage() {
               ["/property-pnl", "Property P&L"],
               ["/deals", "Deal pipeline"],
               ["/tax-export", "Tax CSV"],
+              ["/ledger-import", "Import CSV"],
               ["/backup", "Backup & restore"],
               ["/scenarios", "Scenarios"],
             ].map(([to, label]) => (
