@@ -225,6 +225,7 @@ export function DashboardPage() {
               ["/property-pnl", "Property P&L"],
               ["/deals", "Deal pipeline"],
               ["/tax-export", "Tax CSV"],
+              ["/backup", "Backup & restore"],
               ["/scenarios", "Scenarios"],
             ].map(([to, label]) => (
               <Button key={to} asChild variant="outline" className="justify-start">

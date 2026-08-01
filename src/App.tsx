@@ -26,6 +26,7 @@ import { BudgetsPage } from "@/pages/budgets-page";
 import { DealsPage } from "@/pages/deals-page";
 import { ScenariosPage } from "@/pages/scenarios-page";
 import { TaxExportPage } from "@/pages/tax-export-page";
+import { BackupPage } from "@/pages/backup-page";
 import { PropertyPnlPage } from "@/pages/property-pnl-page";
 import { MapPage } from "@/pages/map-page";
 import { AuditPage } from "@/pages/audit-page";
@@ -76,6 +77,7 @@ export default function App() {
                 <Route path="deals" element={<DealsPage />} />
                 <Route path="scenarios" element={<ScenariosPage />} />
                 <Route path="tax-export" element={<TaxExportPage />} />
+                <Route path="backup" element={<BackupPage />} />
                 <Route path="property-pnl" element={<PropertyPnlPage />} />
                 <Route path="map" element={<MapPage />} />
                 <Route path="audit" element={<AuditPage />} />

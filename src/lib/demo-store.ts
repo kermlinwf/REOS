@@ -177,6 +177,88 @@ export function demoReset() {
   return s;
 }
 
+const BACKUP_VERSION = 1;
+
+export interface ReosBackupFile {
+  app: "REOS";
+  version: number;
+  exported_at: string;
+  store: DemoStore;
+}
+
+/** Full local portfolio snapshot for Files / AirDrop / restore. */
+export function demoExportBackup(): ReosBackupFile {
+  return {
+    app: "REOS",
+    version: BACKUP_VERSION,
+    exported_at: nowIso(),
+    store: load(),
+  };
+}
+
+export function demoExportBackupJson(): string {
+  return JSON.stringify(demoExportBackup(), null, 2);
+}
+
+/**
+ * Replace the entire local store from a backup file.
+ * Throws if the payload is not a valid REOS backup.
+ */
+export function demoImportBackup(raw: string): DemoStore {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    throw new Error("That file is not valid JSON.");
+  }
+
+  const empty = emptyStore();
+  let candidate: Partial<DemoStore>;
+
+  if (
+    parsed &&
+    typeof parsed === "object" &&
+    "store" in parsed &&
+    (parsed as ReosBackupFile).app === "REOS"
+  ) {
+    candidate = (parsed as ReosBackupFile).store ?? {};
+  } else if (
+    parsed &&
+    typeof parsed === "object" &&
+    Array.isArray((parsed as DemoStore).properties)
+  ) {
+    // Raw store dump (e.g. copied from DevTools)
+    candidate = parsed as Partial<DemoStore>;
+  } else {
+    throw new Error("Not a REOS backup. Export from Backup & restore first.");
+  }
+
+  const next: DemoStore = {
+    ...empty,
+    properties: candidate.properties ?? empty.properties,
+    units: candidate.units ?? empty.units,
+    tenants: candidate.tenants ?? empty.tenants,
+    leases: candidate.leases ?? empty.leases,
+    transactions: candidate.transactions ?? empty.transactions,
+    mortgages: candidate.mortgages ?? empty.mortgages,
+    vendors: candidate.vendors ?? empty.vendors,
+    tickets: candidate.tickets ?? empty.tickets,
+    inspections: candidate.inspections ?? empty.inspections,
+    communications: candidate.communications ?? empty.communications,
+    recurringBills: candidate.recurringBills ?? empty.recurringBills,
+    documents: candidate.documents ?? empty.documents,
+    budgets: candidate.budgets ?? empty.budgets,
+    deals: candidate.deals ?? empty.deals,
+    rentPayments: candidate.rentPayments ?? empty.rentPayments,
+    depositEvents: candidate.depositEvents ?? empty.depositEvents,
+    turns: candidate.turns ?? empty.turns,
+    audit: candidate.audit ?? empty.audit,
+  };
+
+  save(next);
+  return next;
+}
+
 export function demoGetStore(): DemoStore {
   return load();
 }
