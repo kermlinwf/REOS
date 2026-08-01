@@ -114,7 +114,10 @@ function load(): DemoStore {
         inspections: parsed.inspections ?? empty.inspections,
         communications: parsed.communications ?? empty.communications,
         recurringBills: parsed.recurringBills ?? empty.recurringBills,
-        documents: parsed.documents ?? empty.documents,
+        documents: (parsed.documents ?? empty.documents).map((d) => ({
+          ...d,
+          tenant_id: d.tenant_id ?? null,
+        })),
         budgets: parsed.budgets ?? empty.budgets,
         deals: parsed.deals ?? empty.deals,
         rentPayments: parsed.rentPayments ?? empty.rentPayments,
@@ -246,7 +249,10 @@ export function demoImportBackup(raw: string): DemoStore {
     inspections: candidate.inspections ?? empty.inspections,
     communications: candidate.communications ?? empty.communications,
     recurringBills: candidate.recurringBills ?? empty.recurringBills,
-    documents: candidate.documents ?? empty.documents,
+    documents: (candidate.documents ?? empty.documents).map((d) => ({
+      ...d,
+      tenant_id: (d as { tenant_id?: string | null }).tenant_id ?? null,
+    })),
     budgets: candidate.budgets ?? empty.budgets,
     deals: candidate.deals ?? empty.deals,
     rentPayments: candidate.rentPayments ?? empty.rentPayments,
@@ -560,6 +566,57 @@ export function demoDeleteDocument(id: string) {
     s.documents = s.documents.filter((d) => d.id !== id);
     audit(s, "document", id, "delete", "removed");
   });
+}
+
+export function demoDeleteBudget(id: string) {
+  mutate((s) => {
+    s.budgets = s.budgets.filter((b) => b.id !== id);
+    audit(s, "budget", id, "delete", "removed");
+  });
+}
+
+export function demoDeleteTurn(id: string) {
+  mutate((s) => {
+    s.turns = s.turns.filter((t) => t.id !== id);
+    audit(s, "turn", id, "delete", "removed");
+  });
+}
+
+export function demoAddTurn(
+  input: Omit<UnitTurn, "id" | "created_at" | "updated_at" | "owner_id">,
+  ownerId: string,
+) {
+  const ts = nowIso();
+  const row: UnitTurn = {
+    ...input,
+    id: id(),
+    owner_id: ownerId,
+    created_at: ts,
+    updated_at: ts,
+  };
+  mutate((s) => {
+    s.turns.unshift(row);
+    const unit = s.units.find((u) => u.id === row.unit_id);
+    if (unit && (row.stage === "vacant" || row.stage === "make_ready" || row.stage === "listed")) {
+      unit.status = "vacant";
+    }
+    audit(s, "turn", row.id, "create", row.stage);
+  });
+  return row;
+}
+
+const DEFAULT_TURN_CHECKLIST = [
+  "Clean unit",
+  "Repairs / make-ready",
+  "Paint / touch-up",
+  "Change locks / keys",
+  "Photos for listing",
+  "List for rent",
+  "Lease signed",
+];
+
+export function defaultTurnChecklist(): { item: string; done: boolean }[] {
+  return DEFAULT_TURN_CHECKLIST.map((item) => ({ item, done: false }));
 }
 
 export function demoDeleteMortgage(id: string) {

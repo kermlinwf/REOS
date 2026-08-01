@@ -126,8 +126,11 @@ export interface VaultDocument {
   property_id: string | null;
   unit_id: string | null;
   lease_id: string | null;
+  /** Optional link so screenshots / IDs show under a tenant. */
+  tenant_id: string | null;
   kind: DocumentKind;
   title: string;
+  /** File path or data URL (photos stored locally as data URLs). */
   path: string;
   notes: string | null;
   created_at: string;
