@@ -10,6 +10,7 @@ import { useOpsLists } from "@/hooks/use-ops";
 import {
   demoAddRecurringBill,
   demoDeleteRecurringBill,
+  demoEnsureRecurringPosts,
   demoPostRecurringBill,
   demoUpdateRecurringBill,
 } from "@/lib/demo-store";
@@ -143,20 +144,25 @@ export function RecurringPage() {
     <div className="space-y-4">
       <PageHeader
         title="Recurring bills"
-        description="Insurance, lawn, HOA — post to the ledger when due."
+        description="Posts to the ledger automatically after each bill's day-of-month, or tap Post now."
         action={
-          <Button
-            size="sm"
-            onClick={() => {
-              if (open) resetForm();
-              else {
-                setEditingId(null);
-                setOpen(true);
-              }
-            }}
-          >
-            Add
-          </Button>
+          <div className="flex gap-2">
+            <Button size="sm" variant="outline" onClick={postAllDue}>
+              Post due
+            </Button>
+            <Button
+              size="sm"
+              onClick={() => {
+                if (open) resetForm();
+                else {
+                  setEditingId(null);
+                  setOpen(true);
+                }
+              }}
+            >
+              Add
+            </Button>
+          </div>
         }
       />
 

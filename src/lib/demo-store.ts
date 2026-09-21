@@ -113,7 +113,12 @@ function load(): DemoStore {
         tickets: parsed.tickets ?? empty.tickets,
         inspections: parsed.inspections ?? empty.inspections,
         communications: parsed.communications ?? empty.communications,
-        recurringBills: parsed.recurringBills ?? empty.recurringBills,
+        recurringBills: (parsed.recurringBills ?? empty.recurringBills).map(
+          (b) => ({
+            ...b,
+            last_posted_period: b.last_posted_period ?? null,
+          }),
+        ),
         documents: (parsed.documents ?? empty.documents).map((d) => ({
           ...d,
           tenant_id: d.tenant_id ?? null,
@@ -248,7 +253,12 @@ export function demoImportBackup(raw: string): DemoStore {
     tickets: candidate.tickets ?? empty.tickets,
     inspections: candidate.inspections ?? empty.inspections,
     communications: candidate.communications ?? empty.communications,
-    recurringBills: candidate.recurringBills ?? empty.recurringBills,
+    recurringBills: (candidate.recurringBills ?? empty.recurringBills).map(
+      (b) => ({
+        ...b,
+        last_posted_period: b.last_posted_period ?? null,
+      }),
+    ),
     documents: (candidate.documents ?? empty.documents).map((d) => ({
       ...d,
       tenant_id: (d as { tenant_id?: string | null }).tenant_id ?? null,
@@ -816,27 +826,69 @@ export function demoAddRecurringBill(
   return row;
 }
 
-export function demoPostRecurringBill(billId: string) {
+function recurringOccurrenceOn(period: string, dayOfMonth: number): string {
+  const day = Math.min(Math.max(1, dayOfMonth), 28);
+  return `${period}-${String(day).padStart(2, "0")}`;
+}
+
+function postRecurringBillInStore(
+  store: DemoStore,
+  bill: RecurringBill,
+  period: string,
+): boolean {
+  if (bill.last_posted_period === period) return false;
+
+  store.transactions.push({
+    id: id(),
+    owner_id: bill.owner_id,
+    property_id: bill.property_id,
+    unit_id: null,
+    lease_id: null,
+    type: "expense",
+    category: bill.category,
+    amount_cents: bill.amount_cents,
+    occurred_on: recurringOccurrenceOn(period, bill.day_of_month),
+    description: `Recurring: ${bill.name}`,
+    receipt_path: null,
+    created_at: nowIso(),
+    updated_at: nowIso(),
+  });
+  bill.last_posted_period = period;
+  bill.updated_at = nowIso();
+  audit(store, "recurring_bill", bill.id, "post", bill.name);
+  return true;
+}
+
+/** Auto-post active bills once their day-of-month has passed this month. */
+export function demoEnsureRecurringPosts(now = new Date()) {
+  const period = currentPeriod();
+  const day = now.getDate();
+  mutate((s) => {
+    for (const bill of s.recurringBills) {
+      if (!bill.active) continue;
+      if (bill.last_posted_period === period) continue;
+      if (day < bill.day_of_month) continue;
+      postRecurringBillInStore(s, bill, period);
+    }
+  });
+}
+/** Post one bill to the ledger for the current month (manual catch-up). */
+export function demoPostRecurringBill(
+  billId: string,
+): "posted" | "already" | "missing" {
+  let result: "posted" | "already" | "missing" = "missing";
   mutate((s) => {
     const bill = s.recurringBills.find((b) => b.id === billId);
     if (!bill) return;
-    s.transactions.push({
-      id: id(),
-      owner_id: bill.owner_id,
-      property_id: bill.property_id,
-      unit_id: null,
-      lease_id: null,
-      type: "expense",
-      category: bill.category,
-      amount_cents: bill.amount_cents,
-      occurred_on: today(),
-      description: `Recurring: ${bill.name}`,
-      receipt_path: null,
-      created_at: nowIso(),
-      updated_at: nowIso(),
-    });
-    audit(s, "recurring_bill", bill.id, "post", bill.name);
+    const period = currentPeriod();
+    if (bill.last_posted_period === period) {
+      result = "already";
+      return;
+    }
+    postRecurringBillInStore(s, bill, period);
+    result = "posted";
   });
+  return result;
 }
 
 export function demoAddDeal(

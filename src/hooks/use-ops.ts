@@ -1,6 +1,7 @@
 import * as React from "react";
 import {
   demoEnsureRentRoll,
+  demoEnsureRecurringPosts,
   demoGetStore,
   demoOps,
 } from "@/lib/demo-store";
@@ -13,6 +14,7 @@ export function useDemoStore(): DemoStore & { reload: () => void } {
 
   React.useEffect(() => {
     demoEnsureRentRoll();
+    demoEnsureRecurringPosts();
   }, []);
 
   React.useEffect(() => {

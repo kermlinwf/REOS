@@ -116,6 +116,8 @@ export interface RecurringBill {
   day_of_month: number;
   active: boolean;
   notes: string | null;
+  /** YYYY-MM of the last ledger post (prevents double-posting the same month). */
+  last_posted_period: string | null;
   created_at: string;
   updated_at: string;
 }

@@ -81,7 +81,9 @@ function useAsyncList<T>(
     if (!isDemoSessionActive()) return;
     const bump = () => setTick((t) => t + 1);
     const onStorage = (e: StorageEvent) => {
-      if (e.key?.startsWith("reos_demo_store")) bump();
+      if (e.key?.startsWith("reos_local_store") || e.key?.startsWith("reos_demo_store")) {
+        bump();
+      }
     };
     window.addEventListener("storage", onStorage);
     window.addEventListener("reos-store-changed", bump);
