@@ -814,11 +814,21 @@ export function demoAddInspection(
 }
 
 export function demoAddRecurringBill(
-  input: Omit<RecurringBill, "id" | "created_at" | "updated_at" | "owner_id">,
+  input: Omit<
+    RecurringBill,
+    "id" | "created_at" | "updated_at" | "owner_id" | "last_posted_period"
+  > & { last_posted_period?: string | null },
   ownerId: string,
 ) {
   const ts = nowIso();
-  const row: RecurringBill = { ...input, id: id(), owner_id: ownerId, created_at: ts, updated_at: ts };
+  const row: RecurringBill = {
+    ...input,
+    last_posted_period: input.last_posted_period ?? null,
+    id: id(),
+    owner_id: ownerId,
+    created_at: ts,
+    updated_at: ts,
+  };
   mutate((s) => {
     s.recurringBills.push(row);
     audit(s, "recurring_bill", row.id, "create", row.name);

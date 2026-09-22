@@ -140,6 +140,38 @@ export function RecurringPage() {
     reload();
   }
 
+  const currentPeriod = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}`;
+
+  function postBill(billId: string) {
+    const result = demoPostRecurringBill(billId);
+    reload();
+    if (result === "posted") {
+      toast({
+        title: "Posted to ledger",
+        description: "Check Ledger — filter by Expense if needed.",
+        variant: "success",
+      });
+    } else if (result === "already") {
+      toast({
+        title: "Already posted this month",
+        description: "Each bill posts once per month.",
+        variant: "destructive",
+      });
+    } else {
+      toast({ title: "Bill not found", variant: "destructive" });
+    }
+  }
+
+  function postAllDue() {
+    demoEnsureRecurringPosts();
+    reload();
+    toast({
+      title: "Checked due bills",
+      description: "Any bill past its day-of-month is now on the ledger.",
+      variant: "success",
+    });
+  }
+
   return (
     <div className="space-y-4">
       <PageHeader
@@ -281,20 +313,20 @@ export function RecurringPage() {
                         {formatCents(b.amount_cents)} ·{" "}
                         {TRANSACTION_CATEGORY_LABELS[b.category] ?? b.category}
                       </p>
+                      <p className="text-xs text-[var(--color-muted-foreground)]">
+                        {b.last_posted_period === currentPeriod
+                          ? `Posted for ${currentPeriod} — on ledger`
+                          : new Date().getDate() >= b.day_of_month
+                            ? "Due — tap Post due or Post now"
+                            : `Posts after day ${b.day_of_month} this month`}
+                      </p>
                     </div>
                     <div className="flex flex-wrap gap-2">
                     <Button
                       size="sm"
                       variant="outline"
                       disabled={!b.active}
-                      onClick={() => {
-                        demoPostRecurringBill(b.id);
-                        reload();
-                        toast({
-                          title: "Posted to ledger",
-                          variant: "success",
-                        });
-                      }}
+                      onClick={() => postBill(b.id)}
                     >
                       Post now
                     </Button>
